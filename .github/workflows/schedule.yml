@@ -5,33 +5,36 @@ on:
   schedule:
   - cron: '30 20 * * *'
 
+permissions: {}
+
 jobs:
   main:
     name: Check Latest Download Statistics
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c  # tag: v3.3.0
+    - name: Generate GitHub App token
+      uses: electron/github-app-auth-action@384fd19694fe7b6dcc9a684746c6976ad78228ae # v1.1.1
+      id: generate-token
+      with:
+        creds: ${{ secrets.GH_APP_CREDS }}
+    - uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938  # tag: v4.2.0
+      with:
+        token: ${{ steps.generate-token.outputs.token }}
     - name: Setup Node.js
-      uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c  # tag: v3.6.0
+      uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6  # tag: v4.0.4
       with:
         node-version: lts/*
     - name: Install Dependencies
       run: npm ci
     - name: Build Release Data
-      run: npm run build
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Push Updated Data
       run: |
-        if [ "$(git status --porcelain)" = "" ]; then
-          echo "No new content found: exiting!"
-          exit
-        fi
-
-        git config user.email electron@github.com
-        git config user.name electron-bot
+        npm run build
         git add .
-        git commit -m "chore: update download stats"
-        git push origin main --follow-tags
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+    - name: Push Updated Data
+      uses: dsanders11/github-app-commit-action@43de6da2f4d927e997c0784c7a0b61bd19ad6aac # v1.5.0
+      with:
+        fail-on-no-changes: false
+        message: 'chore: update download stats'
+        token: ${{ steps.generate-token.outputs.token }}
